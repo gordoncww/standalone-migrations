@@ -2,6 +2,7 @@ require 'active_support/all'
 require 'active_record'
 require 'pathname'
 require 'standalone_migrations/configurator'
+require 'ext/object'
 
 # earlier versions used migrations from db/migrations, so warn users about the change
 if File.directory?('db/migrations')
@@ -12,49 +13,50 @@ def standalone_configurator
   @configurator ||= StandaloneMigrations::Configurator.new
 end
 
-module Rails
-  def self.env
-    s = (ENV['RAILS_ENV'] || ENV['RACK_ENV'] || ENV['DB'] || 'development').dup # env is frozen -> dup
-    def s.development?; self == 'development';end
-    s
-  end
-
-  def self.root
-    Pathname.new Dir.pwd
-  end
-
-  def self.application
-    s = "fake_app"
-
-    def s.paths
-      {
-        "db/migrate"   => [standalone_configurator.migrate_dir],
-        "db/seeds.rb"  => [standalone_configurator.seeds],
-        "db/schema.rb" => [standalone_configurator.schema]
-      } 
+module StandaloneMigrations
+  module Rails
+    def self.env
+      s = (ENV['RAILS_ENV'] || ENV['RACK_ENV'] || ENV['DB'] || 'development').dup # env is frozen -> dup
+      def s.development?; self == 'development';end
+      s
     end
 
-    def s.config
-      s = "fake_config"
-      def s.database_configuration
-        standalone_configurator.config_for_all
+    def self.root
+      Pathname.new Dir.pwd
+    end
+
+    def self.application
+      s = "fake_app"
+
+      def s.paths
+        {
+          "db/migrate"   => [standalone_configurator.migrate_dir],
+          "db/seeds.rb"  => [standalone_configurator.seeds],
+          "db/schema.rb" => [standalone_configurator.schema]
+        }
+      end
+
+      def s.config
+        s = "fake_config"
+        def s.database_configuration
+          standalone_configurator.config_for_all
+        end
+        s
+      end
+
+      def s.load_seed
+        seed_file = paths["db/seeds.rb"].select{ |f| File.exists?(f) }.first
+        load(seed_file) if seed_file
       end
       s
     end
-    
-    def s.load_seed
-      seed_file = paths["db/seeds.rb"].select{ |f| File.exists?(f) }.first
-      load(seed_file) if seed_file
-    end
-    s
   end
-
 end
 
 task(:rails_env){}
 
 task(:environment => "db:load_config") do
-  ActiveRecord::Base.establish_connection standalone_configurator.config_for Rails.env
+  ActiveRecord::Base.establish_connection standalone_configurator.config_for StandaloneMigrations::Rails.env
 end
 
 load 'active_record/railties/databases.rake'

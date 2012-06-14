@@ -23,6 +23,7 @@ Gem::Specification.new do |s|
     "VERSION",
     "lib/standalone_migrations/configurator.rb",
     "lib/tasks/standalone_migrations.rb",
+    "lib/ext/object.rb",
     "spec/spec_helper.rb",
     "spec/standalone_migrations/configurator_spec.rb",
     "spec/standalone_migrations_spec.rb",
